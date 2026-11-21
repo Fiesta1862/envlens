@@ -1,0 +1,24 @@
+name: Feature request
+description: Suggest an improvement for envlens
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem would this solve?
+    validations:
+      required: true
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed behavior
+      description: Example commands and output are very helpful.
+    validations:
+      required: true
+  - type: checkboxes
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      options:
+        - label: I considered existing flags or commands as workarounds

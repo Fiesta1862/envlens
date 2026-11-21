@@ -1,4 +1,4 @@
-import type { CheckReport, DiffRow } from './analyzer.js';
+import type { CheckReport, DiffRow, Issue } from './analyzer.js';
 import type { EnvFile } from './parser.js';
 
 export interface FormatOptions {
@@ -18,11 +18,11 @@ function paint(text: string, code: number, enabled: boolean): string {
   return enabled ? `\x1b[${code}m${text}\x1b[0m` : text;
 }
 
-/** Mask a value while leaving enough shape to be useful. */
+/** Mask a value without revealing any of its characters. */
 export function maskValue(value: string): string {
   if (value === '') return '<empty>';
   if (value.length <= 4) return '•'.repeat(value.length);
-  return `${value.slice(0, 2)}…${value.slice(-2)}`;
+  return `•••• (${value.length} chars)`;
 }
 
 function display(value: string | undefined, mask: boolean): string | undefined {
@@ -30,7 +30,24 @@ function display(value: string | undefined, mask: boolean): string | undefined {
   return mask ? maskValue(value) : value;
 }
 
+/** Replace the value in a raw env line with a masked placeholder. */
+function maskDetail(detail: string, mask: boolean): string {
+  if (!mask) return detail;
+  return detail.replace(
+    /^(\s*(?:export\s+)?[^=]+?=\s*)([\s\S]*)$/,
+    (_match, prefix: string, value: string) => `${prefix}${maskValue(value.trim())}`,
+  );
+}
+
+function presentIssue(issue: Issue, options: FormatOptions): Issue {
+  if (issue.detail === undefined) return issue;
+  const detail = maskDetail(issue.detail, options.mask ?? true);
+  return { ...issue, detail, message: `${issue.message}: ${detail}` };
+}
+
 export function formatCheck(report: CheckReport, options: FormatOptions = {}): string {
+  const issues = report.issues.map((issue) => presentIssue(issue, options));
+
   if (options.json) {
     return `${JSON.stringify(
       {
@@ -40,7 +57,7 @@ export function formatCheck(report: CheckReport, options: FormatOptions = {}): s
         counts: { template: report.templateCount, target: report.targetCount },
         errors: report.errors,
         warnings: report.warnings,
-        issues: report.issues,
+        issues,
       },
       null,
       2,
@@ -55,11 +72,11 @@ export function formatCheck(report: CheckReport, options: FormatOptions = {}): s
     color,
   );
 
-  if (report.issues.length === 0) {
+  if (issues.length === 0) {
     return `${header}\n${counts}\n\n  ${paint('✓', GREEN, color)} no issues found\n`;
   }
 
-  const lines = report.issues.map((issue) => {
+  const lines = issues.map((issue) => {
     const error = issue.severity === 'error';
     const icon = paint(error ? '✗' : '!', error ? RED : YELLOW, color);
     return `  ${icon} ${issue.message}`;
@@ -78,10 +95,12 @@ export function formatCheck(report: CheckReport, options: FormatOptions = {}): s
 }
 
 export function formatDiff(rows: DiffRow[], options: FormatOptions = {}): string {
+  const shown = options.all ? rows : rows.filter((row) => row.status !== 'unchanged');
+
   if (options.json) {
     return `${JSON.stringify(
       {
-        rows: rows.map((row) => ({
+        rows: shown.map((row) => ({
           key: row.key,
           status: row.status,
           before: display(row.before, options.mask ?? true),
@@ -94,7 +113,6 @@ export function formatDiff(rows: DiffRow[], options: FormatOptions = {}): string
   }
 
   const color = options.color ?? false;
-  const shown = options.all ? rows : rows.filter((row) => row.status !== 'unchanged');
 
   if (shown.length === 0) {
     return paint('No differences found.\n', GREEN, color);

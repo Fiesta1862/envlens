@@ -21,6 +21,7 @@ export interface EnvFile {
   duplicates: DuplicateKey[];
   invalidLines: InvalidLine[];
   values: Map<string, string>;
+  lines: string[];
 }
 
 interface ParsedValue {
@@ -51,7 +52,7 @@ export function parseEnv(contents: string, path = '<input>'): EnvFile {
     let line = rawLine.trim();
 
     if (!line || line.startsWith('#')) return;
-    if (line.startsWith('export ')) line = line.slice(7).trimStart();
+    line = line.replace(/^export\s+/, '');
 
     const equals = line.indexOf('=');
     const key = (equals === -1 ? line : line.slice(0, equals)).trim();
@@ -83,7 +84,7 @@ export function parseEnv(contents: string, path = '<input>'): EnvFile {
     if (seen.length > 1) duplicates.push({ key, lines: seen });
   }
 
-  return { path, entries, duplicates, invalidLines, values };
+  return { path, entries, duplicates, invalidLines, values, lines };
 }
 
 function parseValue(input: string): ParsedValue {
@@ -108,7 +109,13 @@ function parseQuoted(text: string, quote: '"' | "'", unescape: boolean): ParsedV
       }
     }
 
-    if (char === quote) return { value };
+    if (char === quote) {
+      const remainder = text.slice(index + 1).trim();
+      if (remainder && !remainder.startsWith('#')) {
+        return { value, error: 'unexpected characters after closing quote' };
+      }
+      return { value };
+    }
     value += char;
   }
 

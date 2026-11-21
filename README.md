@@ -1,5 +1,7 @@
 # envlens
 
+[![CI](https://github.com/Fiesta1862/envlens/actions/workflows/ci.yml/badge.svg)](https://github.com/Fiesta1862/envlens/actions/workflows/ci.yml)
+
 A tiny, dependency-free CLI that keeps your `.env` files honest.
 
 `envlens` compares a real `.env` file against a committed template (like
@@ -12,6 +14,7 @@ with company secrets on screen.
 - **Check** `.env` against `.env.example` (or any two files)
 - **Diff** two env files by key and value
 - **List** keys with masked values
+- **Init** a safe-to-commit `.env.example` from an existing `.env`
 - Detects duplicate keys, invalid lines, and empty values
 - Respects comments, `export` prefixes, quoted values, and escapes
 - JSON output for scripts and CI
@@ -58,7 +61,14 @@ envlens diff .env.example .env.production
 
 # List the keys in a file
 envlens list .env
+
+# Generate a template from an existing .env
+envlens init .env .env.example
 ```
+
+`init` removes values, keeps comments, drops duplicate assignments, and
+comments out lines it could not parse so you can review them. It will not
+overwrite an existing file unless you pass `--force`.
 
 Example output:
 
@@ -82,6 +92,7 @@ envlens: .env.example → .env
 | `--no-mask` | Print full values instead of masking them |
 | `--strict` | Treat warnings as failures in `check` |
 | `--all` | Include unchanged keys in `diff` |
+| `--force` | Overwrite the output file in `init` |
 | `--no-color` | Disable ANSI colors |
 | `-h`, `--help` | Show help |
 | `-v`, `--version` | Show version |

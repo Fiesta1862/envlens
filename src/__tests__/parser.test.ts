@@ -44,6 +44,19 @@ test('reports duplicate keys and invalid lines', () => {
   assert.equal(file.values.get('A'), '1');
 });
 
+test('accepts export followed by whitespace other than a space', () => {
+  const file = parseEnv('export\tKEY=1\nexport   OTHER=2\n');
+  assert.equal(file.values.get('KEY'), '1');
+  assert.equal(file.values.get('OTHER'), '2');
+});
+
+test('rejects trailing junk after a closing quote', () => {
+  const file = parseEnv('C="x"junk\nD=ok\n');
+  assert.equal(file.invalidLines.length, 1);
+  assert.equal(file.invalidLines[0]?.reason, 'unexpected characters after closing quote');
+  assert.equal(file.values.get('D'), 'ok');
+});
+
 test('keeps the first value of a duplicated key', () => {
   const file = parseEnv('TOKEN=first\nTOKEN=second\n');
   assert.equal(file.values.get('TOKEN'), 'first');

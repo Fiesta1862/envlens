@@ -10,6 +10,7 @@
   "types": "dist/index.d.ts",
   "files": [
     "dist",
+    "!dist/__tests__",
     "README.md",
     "LICENSE"
   ],
@@ -17,7 +18,7 @@
     "node": ">=20"
   },
   "scripts": {
-    "build": "node ./node_modules/typescript/bin/tsc -p tsconfig.json && chmod +x dist/cli.js",
+    "build": "node ./node_modules/typescript/bin/tsc -p tsconfig.json && chmod 755 dist/cli.js",
     "clean": "rm -rf dist",
     "test": "npm run build && node --test dist/__tests__/*.test.js",
     "start": "node dist/cli.js"

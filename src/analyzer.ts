@@ -9,6 +9,7 @@ export interface Issue {
   key?: string;
   line?: number;
   message: string;
+  detail?: string;
 }
 
 export interface CheckReport {
@@ -111,7 +112,8 @@ export function checkEnv(
         kind: 'invalid',
         severity: 'error',
         line: invalid.line,
-        message: `${file}:${invalid.line}: ${invalid.reason}: ${invalid.text.trim()}`,
+        message: `${file}:${invalid.line}: ${invalid.reason}`,
+        detail: invalid.text.trim(),
       });
     }
   }

@@ -1,9 +1,10 @@
 #!/usr/bin/env node
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { checkEnv, diffEnv } from './analyzer.js';
 import { formatCheck, formatDiff, formatList, type FormatOptions } from './formatter.js';
 import { parseEnv, type EnvFile } from './parser.js';
+import { generateTemplate } from './template.js';
 
 const HELP = `envlens — see through your .env files
 
@@ -12,12 +13,15 @@ Usage:
                                       (defaults: .env.example, .env)
   envlens diff <from> <to>            Compare two .env files
   envlens list [file]                 List keys and masked values (default: .env)
+  envlens init [source] [output]      Generate a template from an existing .env
+                                      (defaults: .env, .env.example)
 
 Options:
   --json        Output machine-readable JSON
   --no-mask     Show full values instead of masking them
   --strict      Treat warnings as failures in 'check'
   --all         Include unchanged keys in 'diff'
+  --force       Overwrite the output file in 'init'
   --no-color    Disable colored output
   -h, --help    Show this help
   -v, --version Show the version
@@ -27,7 +31,17 @@ Examples:
   envlens check config/example.env .env.local --strict
   envlens diff .env.example .env.production
   envlens list --json
+  envlens init .env .env.example
 `;
+
+const HELP_FLAGS = new Set(['--help', '-h', '--version', '-v']);
+const OUTPUT_FLAGS = ['--json', '--no-mask', '--no-color'];
+const COMMAND_LIMITS: Record<string, { flags: string[]; min: number; max: number }> = {
+  check: { flags: [...OUTPUT_FLAGS, '--strict'], min: 0, max: 2 },
+  diff: { flags: [...OUTPUT_FLAGS, '--all'], min: 2, max: 2 },
+  list: { flags: OUTPUT_FLAGS, min: 0, max: 1 },
+  init: { flags: ['--force'], min: 0, max: 2 },
+};
 
 class CliError extends Error {
   constructor(
@@ -56,6 +70,33 @@ function parseArguments(argv: string[]): Arguments {
   }
 
   return { command, positionals, flags };
+}
+
+function validateArguments(command: string, positionals: string[], flags: Set<string>): void {
+  const spec = COMMAND_LIMITS[command];
+  if (!spec) return;
+
+  const allowed = new Set([...HELP_FLAGS, ...spec.flags]);
+  for (const flag of flags) {
+    if (!allowed.has(flag)) throw new CliError(`unknown option "${flag}" for "${command}"`);
+  }
+
+  if (positionals.length < spec.min || positionals.length > spec.max) {
+    const expected =
+      spec.min === spec.max ? `exactly ${spec.min}` : `${spec.min} to ${spec.max}`;
+    throw new CliError(`'${command}' expects ${expected} file argument(s)`);
+  }
+}
+
+function samePath(first: string, second: string): boolean {
+  const canonical = (path: string): string => {
+    try {
+      return realpathSync(resolve(path));
+    } catch {
+      return resolve(path);
+    }
+  };
+  return canonical(first) === canonical(second);
 }
 
 function version(): string {
@@ -103,6 +144,8 @@ function main(): void {
     return;
   }
 
+  validateArguments(command, positionals, flags);
+
   const format = formatOptions(flags);
 
   if (command === 'check') {
@@ -116,9 +159,6 @@ function main(): void {
   }
 
   if (command === 'diff') {
-    if (positionals.length !== 2) {
-      throw new CliError("'diff' needs exactly two files: envlens diff <from> <to>");
-    }
     const rows = diffEnv(load(positionals[0] as string), load(positionals[1] as string));
     process.stdout.write(formatDiff(rows, format));
     return;
@@ -127,6 +167,32 @@ function main(): void {
   if (command === 'list') {
     const [file = '.env'] = positionals;
     process.stdout.write(formatList(load(file), format));
+    return;
+  }
+
+  if (command === 'init') {
+    const [sourcePath = '.env', outputPath = '.env.example'] = positionals;
+
+    if (samePath(sourcePath, outputPath)) {
+      throw new CliError('source and output must be different files');
+    }
+
+    const source = load(sourcePath);
+
+    if (!flags.has('--force') && existsSync(resolve(outputPath))) {
+      throw new CliError(`"${outputPath}" already exists; use --force to overwrite`);
+    }
+
+    try {
+      writeFileSync(resolve(outputPath), generateTemplate(source));
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : String(error);
+      throw new CliError(`cannot write "${outputPath}": ${reason}`);
+    }
+
+    process.stdout.write(
+      `envlens: wrote ${outputPath} (${source.values.size} unique keys from ${sourcePath})\n`,
+    );
     return;
   }
 
