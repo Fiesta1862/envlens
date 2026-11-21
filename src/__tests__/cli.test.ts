@@ -59,6 +59,20 @@ test('list masks values unless --no-mask is given', () => {
   }
 });
 
+test('list counts every entry while also reporting unique keys', () => {
+  const directory = workspace('A=1\n', 'TOKEN=first\nTOKEN=second\n');
+  try {
+    const result = run(directory, ['list', '--json']);
+    const payload = JSON.parse(result.stdout);
+
+    assert.equal(payload.count, 2);
+    assert.equal(payload.uniqueKeys, 1);
+    assert.equal(payload.variables.length, 2);
+  } finally {
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
 test('--version prints the version even without a command', () => {
   const directory = workspace('A=1\n', 'A=1\n');
   try {

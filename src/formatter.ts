@@ -126,7 +126,8 @@ export function formatList(file: EnvFile, options: FormatOptions = {}): string {
     return `${JSON.stringify(
       {
         file: file.path,
-        count: file.values.size,
+        count: entries.length,
+        uniqueKeys: file.values.size,
         variables: entries.map((entry) => ({
           key: entry.key,
           value: display(entry.value, options.mask ?? true),
@@ -139,7 +140,11 @@ export function formatList(file: EnvFile, options: FormatOptions = {}): string {
   }
 
   const color = options.color ?? false;
-  const header = paint(`envlens: ${file.path} (${file.values.size} variables)`, CYAN, color);
+  const header = paint(
+    `envlens: ${file.path} (${entries.length} entries, ${file.values.size} unique keys)`,
+    CYAN,
+    color,
+  );
 
   if (entries.length === 0) return `${header}\n`;
 
