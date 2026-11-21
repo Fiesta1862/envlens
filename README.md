@@ -29,6 +29,21 @@ npm link
 
 Then run `envlens --help` from anywhere.
 
+## Quick start
+
+The repo ships two sample files so you can try it immediately:
+
+```bash
+node dist/cli.js check examples/.env.example examples/.env
+node dist/cli.js diff examples/.env.example examples/.env --all
+node dist/cli.js list examples/.env --json
+```
+
+The sample `check` exits with code 1 on purpose — the demo `.env` contains
+missing, empty, extra, and duplicate values. In your own project, copy
+`.env.example` to `.env` and run `envlens check` with no arguments; the
+defaults are `.env.example` and `.env` in the current directory.
+
 ## Usage
 
 ```bash
